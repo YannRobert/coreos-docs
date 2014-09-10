@@ -66,7 +66,7 @@ Create 3 instances from the image above using our cloud-config from `cloud-confi
     </div>
     <div class="tab-pane active" id="stable-create">
       <p>The Stable channel should be used by production clusters. Versions of CoreOS are battle-tested within the Beta and Alpha channels before being promoted. Current version is CoreOS {{site.stable-channel}}.</p>
-      <pre>gcutil --project=&lt;project-id&gt; addinstance --image={{site.data.stable-channel.gce-image-path}} --persistent_boot_disk --zone=us-central1-a --machine_type=n1-standard-1 --metadata_from_file=user-data:cloud-config.yaml core1 core2 core3</pre>
+      <pre>gcloud compute instances create core1 core2 core3 --image https://www.googleapis.com/compute/v1/{{site.data.stable-channel.gce-image-path}} --zone us-central1-a --machine-type n1-standard-1 --metadata-from-file user-data=cloud-config.yaml</pre>
     </div>
   </div>
 </div>
