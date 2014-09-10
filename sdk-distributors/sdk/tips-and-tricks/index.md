@@ -26,14 +26,18 @@ repo forall -c  git grep 'CONFIG_EXTRA_FIRMWARE_DIR'
 
 ## Add new upstream package
 
-Before making modificaions use `repo start` to create a new branch for the changes.
+Before making modifications use `repo start` to create a new branch for the changes.
 
 To add a new package fetch the Gentoo package from upstream and add the package as a dependency of coreos-base/coreos
 
 If any files in the upstream package will be changed the package can be fetched from upstream Gentoo directly into `src/third_party/coreos-overlay` it may be necessary to create any missing directrories in the path too.
 
 e.g.
-`~/trunk/src/third_party/coreos-overlay $ mkdir -p sys-block/open-iscsi && rsync -av rsync://rsync.gentoo.org/gentoo-portage/sys-block/open-iscsi/ sys-block/open-iscsi/`
+
+```sh
+~/trunk/src/third_party/coreos-overlay $ mkdir -p sys-block/open-iscsi && rsync -av rsync://rsync.gentoo.org/gentoo-portage/sys-block/open-iscsi/ sys-block/open-iscsi/
+```
+
 The tailing / prevents rsync from creating the directory for the package so you dont end up with `sys-block/open-iscsi/open-iscsi`
 Remember to add the new files to git.
 

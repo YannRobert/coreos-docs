@@ -35,7 +35,7 @@ open coreos_production_vmware_insecure.vmx
 
 ### To deploy on an ESXi/vSphere host, convert the VM to OVF
 * follow the steps above to download and extract the coreos_production_vmware_insecure.zip
-* download and run the [OVF Tool 3.5.0 installer](https://developercenter.vmware.com/tool/ovf) Requires VMware account login but the download is free. Available for Linux, OSX & Windows for both 32 & 64 bit architectures.
+* download and run the [OVF Tool 3.5.0 installer](https://developercenter.vmware.com/tool/ovf/3.5.0) Requires VMware account login but the download is free. Available for Linux, OSX & Windows for both 32 & 64 bit architectures.
 * convert VM to OVF from the extract dir
 
 ```sh
@@ -70,9 +70,11 @@ The last step uploads the files to your ESXi datastore and registers your VM. Yo
 
 Cloud-config can be specified by attaching a [config-drive]({{site.url}}/docs/cluster-management/setup/cloudinit-config-drive/) with the label `config-2`. This is commonly done through whatever interface allows for attaching cd-roms or new drives.
 
-Note that the config-drive standard was originally an Openstack feature, which is why you'll see strings containing `openstack`. This filepath needs to be retained, although CoreOS supports config-drive on all platforms.
+Note that the config-drive standard was originally an OpenStack feature, which is why you'll see strings containing `openstack`. This filepath needs to be retained, although CoreOS supports config-drive on all platforms.
 
 For more information on customization that can be done with cloud-config, head on over to the [cloud-config guide]({{site.url}}/docs/cluster-management/setup/cloudinit-cloud-config/).
+
+Note: The `$private_ipv4` and `$public_ipv4` substitution variables referenced in other documents are *not* supported on VMware.
 
 ## Logging in
 

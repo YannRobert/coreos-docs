@@ -39,7 +39,30 @@ CoreOS (beta)
 
 The first building block of CoreOS is service discovery with **etcd** ([docs][etcd-docs]). Data stored in etcd is distributed across all of your machines running CoreOS. For example, each of your app containers can announce itself to a proxy container, which would automatically know which machines should receive traffic. Building service discovery into your application allows you to add more machines and scale your services seamlessly.
 
-If you used an example [cloud-config]({{site.url}}/docs/cluster-management/setup/cloudinit-cloud-config) from a guide linked in the first paragraph, etcd is automatically started on boot. The API is easy to use. From a CoreOS machine, you can simply use curl to set and retrieve a key from etcd:
+If you used an example [cloud-config]({{site.url}}/docs/cluster-management/setup/cloudinit-cloud-config) from a guide linked in the first paragraph, etcd is automatically started on boot.
+
+A good starting point would be something like:
+
+```
+#cloud-config
+
+hostname: coreos0
+ssh_authorized_keys:
+  - ssh-rsa AAAA...
+coreos:
+  units:
+    - name: etcd.service
+      command: start
+    - name: fleet.service
+      command: start
+  etcd:
+    name: coreos0
+    discovery: https://discovery.etcd.io/<token>
+```
+
+In order to get the discovery token, visit [https://discovery.etcd.io/new] and you will receive a URL including your token. Paste the whole thing into your cloud-config file.
+
+The API is easy to use. From a CoreOS machine, you can simply use curl to set and retrieve a key from etcd:
 
 Set a key `message` with value `Hello world`:
 
@@ -95,15 +118,21 @@ Description=My Service
 After=docker.service
 
 [Service]
-ExecStart=/bin/bash -c '/usr/bin/docker start -a hello || /usr/bin/docker run --name hello busybox /bin/sh -c "while true; do echo Hello World; sleep 1; done"'
-ExecStop=/usr/bin/docker stop -t 1 hello
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill hello
+ExecStartPre=-/usr/bin/docker rm hello
+ExecStartPre=/usr/bin/docker pull busybox
+ExecStart=/usr/bin/docker run --name hello busybox /bin/sh -c "while true; do echo Hello World; sleep 1; done"
+ExecStop=/usr/bin/docker stop hello
 ```
 
 The [Getting Started with systemd]({{site.url}}/docs/launching-containers/launching/getting-started-with-systemd) guide explains the format of this file in more detail.
 
-Then start the unit:
+Then load and start the unit:
 
 ```sh
+$ fleetctl load hello.service
+Job hello.service loaded on 8145ebb7.../172.17.8.105
 $ fleetctl start hello.service
 Job hello.service launched on 8145ebb7.../172.17.8.105
 ```

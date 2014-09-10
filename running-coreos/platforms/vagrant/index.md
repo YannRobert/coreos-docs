@@ -53,20 +53,21 @@ coreos:
       discovery: https://discovery.etcd.io/<token>
       addr: $public_ipv4:4001
       peer-addr: $public_ipv4:7001
+  fleet:
+      public-ip: $public_ipv4
   units:
     - name: etcd.service
       command: start
     - name: fleet.service
       command: start
-      runtime: no
-      content: |
-        [Unit]
-        Description=fleet
-
-        [Service]
-        Environment=FLEET_PUBLIC_IP=$public_ipv4
-        ExecStart=/usr/bin/fleet
 ```
+
+The `$private_ipv4` and `$public_ipv4` substitution variables are fully supported in cloud-config on Vagrant. They will map to the first statically defined private and public networks defined in the Vagrantfile.
+
+Your Vagrantfile should copy your cloud-config file to `/var/lib/coreos-vagrant/vagrantfile-user-data`. The provided Vagrantfile is already configured to do this. `cloudinit` reads `vagrantfile-user-data` on every boot and uses it to create the machine's user-data file.
+
+If you need to update your cloud-config later on, run `vagrant reload --provision` to reboot your VM and apply the new file.
+
 
 [cloud-config-docs]: {{site.url}}/docs/cluster-management/setup/cloudinit-cloud-config
 
@@ -78,7 +79,8 @@ CoreOS is designed to be [updated automatically]({{site.url}}/using-coreos/updat
 
 <div id="vagrant-create">
   <ul class="nav nav-tabs">
-    <li class="active"><a href="#beta-create" data-toggle="tab">Beta Channel</a></li>
+    <li class="active"><a href="#stable-create" data-toggle="tab">Stable Channel</a></li>
+    <li><a href="#beta-create" data-toggle="tab">Beta Channel</a></li>
     <li><a href="#alpha-create" data-toggle="tab">Alpha Channel</a></li>
   </ul>
   <div class="tab-content coreos-docs-image-table">
@@ -91,7 +93,7 @@ $num_instances=3</pre>
       <pre># Official CoreOS channel from which updates should be downloaded
 $update_channel='alpha'</pre>
     </div>
-    <div class="tab-pane active" id="beta-create">
+    <div class="tab-pane" id="beta-create">
       <p>The beta channel consists of promoted alpha releases. Current version is CoreOS {{site.beta-channel}}.</p>
       <p>Rename the file to <code>config.rb</code> then uncomment and modify:</p>
       <h4>config.rb</h4>
@@ -99,6 +101,15 @@ $update_channel='alpha'</pre>
 $num_instances=3</pre>
       <pre># Official CoreOS channel from which updates should be downloaded
 $update_channel='beta'</pre>
+    </div>
+	<div class="tab-pane active" id="stable-create">
+      <p>The Stable channel should be used by production clusters. Versions of CoreOS are battle-tested within the Beta and Alpha channels before being promoted. Current version is CoreOS {{site.stable-channel}}.</p>
+      <p>Rename the file to <code>config.rb</code> then uncomment and modify:</p>
+      <h4>config.rb</h4>
+      <pre># Size of the CoreOS cluster created by Vagrant
+$num_instances=3</pre>
+      <pre># Official CoreOS channel from which updates should be downloaded
+$update_channel='stable'</pre>
     </div>
   </div>
 </div>
@@ -156,19 +167,13 @@ coreos:
   etcd:
       addr: $public_ipv4:4001
       peer-addr: $public_ipv4:7001
+  fleet:
+      public-ip: $public_ipv4
   units:
     - name: etcd.service
       command: start
     - name: fleet.service
       command: start
-      runtime: no
-      content: |
-        [Unit]
-        Description=fleet
-
-        [Service]
-        Environment=FLEET_PUBLIC_IP=$public_ipv4
-        ExecStart=/usr/bin/fleet
 ```
 
 ### Start up CoreOS

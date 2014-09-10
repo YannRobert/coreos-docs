@@ -25,12 +25,16 @@ On CoreOS, unit files are located within the R/W filesystem at `/etc/systemd/sys
 
 ```ini
 [Unit]
-Description=My Service
+Description=MyApp
 After=docker.service
 Requires=docker.service
 
 [Service]
-ExecStart=/usr/bin/docker run busybox /bin/sh -c "while true; do echo Hello World; sleep 1; done"
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill busybox1
+ExecStartPre=-/usr/bin/docker rm busybox1
+ExecStartPre=/usr/bin/docker pull busybox
+ExecStart=/usr/bin/docker run --name busybox1 busybox /bin/sh -c "while true; do echo Hello World; sleep 1; done"
 
 [Install]
 WantedBy=multi-user.target
@@ -77,13 +81,17 @@ systemd provides a high degree of functionality in your unit files. Here's a cur
 | ExecReload | Commands that will run when this unit is reloaded via `systemctl reload foo.service` |
 | ExecStop | Commands that will run when this unit is considered failed or if it is stopped via `systemctl stop foo.service` |
 | ExecStopPost | Commands that will run after `ExecStop` has completed. |
-| RestartSec | The amount of time to sleep before restarting a serivce. Useful to prevent your failed service from attempting to restart itself every 100ms. |
+| RestartSec | The amount of time to sleep before restarting a service. Useful to prevent your failed service from attempting to restart itself every 100ms. |
 
 The full list is located on the [systemd man page](http://www.freedesktop.org/software/systemd/man/systemd.service.html).
 
-Let's put a few of these concepts togther to register new units within etcd. Imagine we had another container running that would read these values from etcd and act upon them.
+Let's put a few of these concepts together to register new units within etcd. Imagine we had another container running that would read these values from etcd and act upon them.
 
-We can use `ExecStart` to either create a container with the `docker run` command or start a pre-existing container with the `docker start -a` command. We need to account for both because you can't issue multiple docker run commands when specifying a `--name`. In either case we must leave the container in the foreground (i.e. don't run with `-d`) so systemd knows the service is running.
+We can use `ExecStartPre` to scrub existing conatiner state. The `docker kill` will force any previous copy of this container to stop, which is useful if we restarted the unit but docker didn't stop the container for some reason. The `=-` is systemd syntax to ignore errors for this command. We need to do this because docker will return a non-zero exit code if we try to stop a container that doesn't exist. We don't consider this an error (because we want the container stopped) so we tell systemd to ignore the possible failure.
+
+`docker rm` will remove the container and `docker pull` will pull down the latest version. You can optionally pull down a specific version as a docker tag: `coreos/apache:1.2.3`
+
+`ExecStart` is where the container is started from the container image that we pulled above.
 
 Since our container will be started in `ExecStart`, it makes sense for our etcd command to run as `ExecStartPost` to ensure that our container is started and functioning.
 
@@ -96,16 +104,20 @@ After=etcd.service
 After=docker.service
 
 [Service]
-ExecStart=/bin/bash -c '/usr/bin/docker start -a apache || /usr/bin/docker run --name apache -p 80:80 coreos/apache /usr/sbin/apache2ctl -D FOREGROUND'
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill apache1
+ExecStartPre=-/usr/bin/docker rm apache1
+ExecStartPre=/usr/bin/docker pull coreos/apache
+ExecStart=/usr/bin/docker run --name apache1 -p 80:80 coreos/apache /usr/sbin/apache2ctl -D FOREGROUND
 ExecStartPost=/usr/bin/etcdctl set /domains/example.com/10.10.10.123:8081 running
-ExecStop=/usr/bin/docker stop apache
+ExecStop=/usr/bin/docker stop apache1
 ExecStopPost=/usr/bin/etcdctl rm /domains/example.com/10.10.10.123:8081
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-## Unit Variables
+## Unit Specifiers
 
 In our last example we had to hardcode our IP address when we announced our container in etcd. That's not scalable and systemd has a few variables built in to help us out. Here's a few of the most useful:
 
@@ -116,7 +128,7 @@ In our last example we had to hardcode our IP address when we announced our cont
 | `%b` | BootID | Similar to the machine ID, but this value is random and changes on each boot |
 | `%H` | Hostname | Allows you to run the same unit file across many machines. Useful for service discovery. Example: `/domains/example.com/%H:8081` |
 
-A full list is on the [systemd man page](http://www.freedesktop.org/software/systemd/man/systemd.unit.html).
+A full list of specifiers can be found on the [systemd man page](http://www.freedesktop.org/software/systemd/man/systemd.unit.html#Specifiers).
 
 ## Instantiated Units
 

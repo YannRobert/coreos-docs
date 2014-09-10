@@ -57,13 +57,13 @@ $ glance image-create --name CoreOS \
 ## Cloud-Config
 
 CoreOS allows you to configure machine parameters, launch systemd units on startup and more via cloud-config. Jump over to the [docs to learn about the supported features][cloud-config].
-We're going to provide our cloud-config to Openstack via the user-data flag. Our cloud-config will also contain SSH keys that will be used to connect to the instance.
+We're going to provide our cloud-config to OpenStack via the user-data flag. Our cloud-config will also contain SSH keys that will be used to connect to the instance.
 In order for this to work your OpenStack cloud provider must support [config drive][config-drive] or the OpenStack metadata service.
 
 [cloud-config]: {{site.url}}/docs/cluster-management/setup/cloudinit-cloud-config
 [config-drive]: http://docs.openstack.org/user-guide/content/config-drive.html
 
-The most common cloud-config for Openstack looks like:
+The most common cloud-config for OpenStack looks like:
 
 ```yaml
 #cloud-config
@@ -84,6 +84,8 @@ ssh_authorized_keys:
   # include one or more SSH public keys
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0g+ZTxC7weoIJLUafOgrm+h...
 ```
+
+The `$private_ipv4` and `$public_ipv4` substitution variables are fully supported in cloud-config on most OpenStack deployments. Unfortunately some systems relying on config drive may leave these values undefined.
 
 ## Launch Cluster
 

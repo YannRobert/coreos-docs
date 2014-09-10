@@ -26,7 +26,12 @@ After=docker.service
 Requires=docker.service
 
 [Service]
-ExecStart=/usr/bin/docker run busybox /bin/sh -c "while true; do echo Hello World; sleep 1; done"
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill busybox1
+ExecStartPre=-/usr/bin/docker rm busybox1
+ExecStartPre=/usr/bin/docker pull busybox
+ExecStart=/usr/bin/docker run --name busybox1 busybox /bin/sh -c "while true; do echo Hello World; sleep 1; done"
+ExecStop=/usr/bin/docker stop busybox1
 ```
 
 Run the start command to start up the container on the cluster:
@@ -34,13 +39,12 @@ Run the start command to start up the container on the cluster:
 ```sh
 $ fleetctl start myapp.service
 ```
-
-Now list all of the units in the cluster to see the current status. The unit should have been scheduled to a machine in your cluster:
+The unit should have been scheduled to a machine in your cluster:
 
 ```sh
 $ fleetctl list-units
-UNIT             LOAD    ACTIVE  SUB      DESC    MACHINE
-myapp.service  	 loaded  active  running  MyApp   c9de9451.../10.10.1.3
+UNIT              MACHINE                 ACTIVE    SUB
+myapp.service     c9de9451.../10.10.1.3   active    running
 ```
 
 You can view all of the machines in the cluster by running `list-machines`:
@@ -66,8 +70,12 @@ After=docker.service
 Requires=docker.service
 
 [Service]
-ExecStart=/usr/bin/docker run -rm --name apache -p 80:80 coreos/apache /usr/sbin/apache2ctl -D FOREGROUND
-ExecStop=/usr/bin/docker rm -f apache
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill apache1
+ExecStartPre=-/usr/bin/docker rm apache1
+ExecStartPre=/usr/bin/docker pull coreos/apache
+ExecStart=/usr/bin/docker run -rm --name apache1 -p 80:80 coreos/apache /usr/sbin/apache2ctl -D FOREGROUND
+ExecStop=/usr/bin/docker stop apache1
 
 [X-Fleet]
 X-Conflicts=apache.*.service
@@ -80,19 +88,19 @@ Let's start both units and verify that they're on two different machines:
 ```sh
 $ fleetctl start apache.*
 $ fleetctl list-units
-UNIT               LOAD    ACTIVE  SUB      DESC    			MACHINE
-myapp.service  	   loaded  active  running  MyApp               c9de9451.../10.10.1.3
-apache.1.service   loaded  active  running  My Apache Frontend  491586a6.../10.10.1.2
-apache.2.service   loaded  active  running  My Apache Frontend  148a18ff.../10.10.1.1
+UNIT              MACHINE                 ACTIVE    SUB
+myapp.service     c9de9451.../10.10.1.3   active    running
+apache.1.service  491586a6.../10.10.1.2   active    running
+apache.2.service  148a18ff.../10.10.1.1   active    running
 ```
 
 As you can see, the Apache units are now running on two different machines in our cluster.
 
-How do we route requests to these containers? The best strategy is to run a "sidekick" container that performs other duties that are related to our main container but shouldn't be directly built into that application. Examples of common sidekick containers are for service discovery and controlling external services such as cloud load balancers.
+How do we route requests to these containers? The best strategy is to run a "sidekick" container that performs other duties that are related to our main container but shouldn't be directly built into that application. Examples of common sidekick containers are for service discovery and controlling external services such as cloud load balancers or DNS.
 
 ## Run a Simple Sidekick
 
-The simplest sidekick example is for [service discovery](https://github.com/coreos/fleet/blob/master/Documentation/service-discovery.md). This unit blindly announces that our container has been started. We'll run one of these for each Apache unit that's already running. Make two copies of the unit called `apache-discovery.1.service` and `apache-discovery.2.service`. Be sure to change all instances of `apache.1.service` to `apache.2.service` and `apache1` to `apache2` when you create the second unit.
+The simplest sidekick example is for [service discovery](https://github.com/coreos/fleet/blob/master/Documentation/examples/service-discovery.md). This unit blindly announces that our container has been started. We'll run one of these for each Apache unit that's already running. Make two copies of the unit called `apache-discovery.1.service` and `apache-discovery.2.service`. Be sure to change all instances of `apache.1.service` to `apache.2.service` and `apache1` to `apache2` when you create the second unit.
 
 ```ini
 [Unit]
@@ -113,17 +121,17 @@ Second is `%H`, a variable built into systemd, that represents the hostname of t
 
 The third is a [fleet-specific property]({{site.url}}/docs/launching-containers/launching/fleet-unit-files/) called `X-ConditionMachineOf`. This property causes the unit to be placed onto the same machine that `apache.1.service` is running on.
 
-Let's verify that each unit was placed on to the same machine as the Apache service is is bound to:
+Let's verify that each unit was placed on to the same machine as the Apache service is bound to:
 
 ```sh
 $ fleetctl start apache-discovery.1.service
 $ fleetctl list-units
-UNIT              			LOAD    ACTIVE  SUB      DESC    			 MACHINE
-myapp.service  	  			loaded  active  running  MyApp               c9de9451.../10.10.1.3
-apache.1.service 			loaded  active  running  My Apache Frontend  491586a6.../10.10.1.2
-apache.2.service  			loaded  active  running  My Apache Frontend  148a18ff.../10.10.1.1
-apache-discovery.1.service  loaded  active  running  Announce Apache1    491586a6.../10.10.1.2
-apache-discovery.2.service  loaded  active  running  Announce Apache2    148a18ff.../10.10.1.1
+UNIT                        MACHINE                 ACTIVE    SUB
+myapp.service               c9de9451.../10.10.1.3   active    running
+apache.1.service            491586a6.../10.10.1.2   active    running
+apache.2.service            148a18ff.../10.10.1.1   active    running
+apache-discovery.1.service  491586a6.../10.10.1.2   active    running
+apache-discovery.2.service  148a18ff.../10.10.1.1   active    running
 ```
 
 Now let's verify that the service discovery is working correctly:
@@ -147,7 +155,7 @@ If you're running in the cloud, many services have APIs that can be automated ba
 
 Applications with complex and specific requirements can target a subset of the cluster for scheduling via machine metadata. Powerful deployment topologies can be achieved &mdash; schedule units based on the machine's region, rack location, disk speed or anything else you can think of.
 
-Metadata can be provided via [cloud-config]({{site.url}}/docs/cluster-management/setup/cloudinit-cloud-config/#coreos) or a [config file](https://github.com/coreos/fleet/blob/master/Documentation/configuration.md). Here's an example config file:
+Metadata can be provided via [cloud-config]({{site.url}}/docs/cluster-management/setup/cloudinit-cloud-config/#coreos) or a [config file](https://github.com/coreos/fleet/blob/master/Documentation/deployment-and-configuration.md). Here's an example config file:
 
 ```ini
 # Comma-delimited key/value pairs that are published to the fleet registry.
@@ -202,4 +210,4 @@ X-ConditionMachineMetadata=region=east
 #### More Information
 <a class="btn btn-default" href="{{site.url}}/docs/launching-containers/launching/fleet-example-deployment">Example Deployment with fleet</a>
 <a class="btn btn-default" href="{{site.url}}/docs/launching-containers/launching/fleet-unit-files/">fleet Unit Specifications</a>
-<a class="btn btn-default" href="https://github.com/coreos/fleet/blob/master/Documentation/configuration.md">fleet Configuration</a>
+<a class="btn btn-default" href="https://github.com/coreos/fleet/blob/master/Documentation/deployment-and-configuration.md">fleet Configuration</a>

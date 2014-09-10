@@ -12,7 +12,7 @@ The docker systemd unit can be customized by overriding the unit that ships with
 
 ## Enable the Remote API on a New Socket
 
-Create a file called `/etc/systemd/system/docker-tcp.socket` to make docker available on a tcp socket on port 2375.
+Create a file called `/etc/systemd/system/docker-tcp.socket` to make docker available on a TCP socket on port 2375.
 
 ```ini
 [Unit]
@@ -20,8 +20,8 @@ Description=Docker Socket for the API
 
 [Socket]
 ListenStream=2375
-Service=docker.service
 BindIPv6Only=both
+Service=docker.service
 
 [Install]
 WantedBy=sockets.target
@@ -34,6 +34,11 @@ systemctl enable docker-tcp.socket
 systemctl stop docker
 systemctl start docker-tcp.socket
 systemctl start docker
+```
+
+Test that it's working:
+
+```sh
 docker -H tcp://127.0.0.1:2375 ps
 ```
 
@@ -48,14 +53,15 @@ coreos:
   units:
     - name: docker-tcp.socket
       command: start
+      enable: yes
       content: |
         [Unit]
         Description=Docker Socket for the API
 
         [Socket]
         ListenStream=2375
-        Service=docker.service
         BindIPv6Only=both
+        Service=docker.service
 
         [Install]
         WantedBy=sockets.target
