@@ -112,7 +112,7 @@ gcloud compute instances add-metadata core1 --zone us-central1-a --metadata-from
 The new metadata will be applied to the machine after a reboot. To verify that the metadata was set correctly, you can run:
 
 ```sh
-$ gcloud compute instances get core1
+$ gcloud compute instances describe --zone us-central1-a core1
 ---
 canIpForward: false
 creationTimestamp: '2014-07-01T16:04:06.469-07:00'
